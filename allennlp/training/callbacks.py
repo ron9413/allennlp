@@ -87,7 +87,7 @@ class Callback(Registrable):
     def set_trainer(self, trainer):
         """Sets the trainer (required)"""
         # TODO: Move to constructor
-        self._trainer = _trainer
+        self._trainer = trainer
 
     @property
     def trainer(self):
