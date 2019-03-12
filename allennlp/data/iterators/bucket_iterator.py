@@ -133,13 +133,10 @@ class BucketIterator(DataIterator):
                 last_batch = batches.pop()
                 penultimate_batch = batches.pop()
             if shuffle:
-                idxs = np.random.permutation(len(batches))
                 # NOTE: if shuffle is false, the data will still be in a different order
                 # because of the bucket sorting.
-                # random.shuffle(batches)
-            else: idxs = np.arange(len(batches))
+                random.shuffle(batches)
             if move_to_front:
                 batches.insert(0, penultimate_batch)
                 batches.insert(0, last_batch)
-
-            for i in idxs: yield batches[i]
+            yield from batches
