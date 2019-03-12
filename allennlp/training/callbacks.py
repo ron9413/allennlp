@@ -41,35 +41,35 @@ class Callback(Registrable):
         if event_type == EventType.BATCH_END: self.on_batch_end(data)
         if event_type == EventType.TRAIN_END: self.on_train_end(data)
 
-    def on_train_begin(self, **kwargs:Any)->None:
+    def on_train_begin(self, data: dict={})->None:
         "To initialize constants in the callback."
         pass
-    def on_epoch_begin(self, **kwargs:Any)->None:
+    def on_epoch_begin(self, data: dict={})->None:
         "At the beginning of each epoch."
         pass
-    def on_batch_begin(self, **kwargs:Any)->None:
+    def on_batch_begin(self, data: dict={})->None:
         "Set HP before the step is done. Returns xb, yb (which can allow us to modify the input at that step if needed)."
         pass
-    def on_loss_begin(self, **kwargs:Any)->None:
+    def on_loss_begin(self, data: dict={})->None:
         "Called after forward pass but before loss has been computed. Returns the output (which can allow us to modify it)."
         pass
-    def on_backward_begin(self, **kwargs:Any)->None:
+    def on_backward_begin(self, data: dict={})->None:
         """Called after the forward pass and the loss has been computed, but before backprop.
            Returns the loss (which can allow us to modify it, for instance for reg functions)"""
         pass
-    def on_backward_end(self, **kwargs:Any)->None:
+    def on_backward_end(self, data: dict={})->None:
         "Called after backprop but before optimizer step. Useful for true weight decay in AdamW."
         pass
-    def on_step_end(self, **kwargs:Any)->None:
+    def on_step_end(self, data: dict={})->None:
         "Called after the step of the optimizer but before the gradients are zeroed."
         pass
-    def on_batch_end(self, **kwargs:Any)->None:
+    def on_batch_end(self, data: dict={})->None:
         "Called at the end of the batch."
         pass
-    def on_epoch_end(self, **kwargs:Any)->bool:
+    def on_epoch_end(self, data: dict={})->bool:
         "Called at the end of an epoch."
         return False
-    def on_train_end(self, **kwargs:Any)->None:
+    def on_train_end(self, data: dict={})->None:
         "Useful for cleaning up things and saving files/models."
         pass
 
@@ -107,7 +107,8 @@ class CallbackHandler:
         self.trainer = trainer
         self.call("set_trainer", trainer)
 
-    def on_event(self, event_type: EventType, data: dict=None): self.call("on_event", data=data)
+    def on_event(self, event_type: EventType, data: dict=None):
+        self.call("on_event", event_type, data=data)
 
 class TensorboardCallback(Callback):
     def __init__(self,
