@@ -43,7 +43,8 @@ class SingleIdTokenIndexer(TokenIndexer[int]):
         # If `text_id` is set on the token (e.g., if we're using some kind of hash-based word
         # encoding), we will not be using the vocab for this token.
         if getattr(token, 'text_id', None) is None:
-            text = token.text
+            if hasattr(token, "text"): text = token.text # Allowing usage of strings
+            else: text = token
             if self.lowercase_tokens:
                 text = text.lower()
             counter[self.namespace][text] += 1
@@ -61,7 +62,8 @@ class SingleIdTokenIndexer(TokenIndexer[int]):
                 # this id instead.
                 indices.append(token.text_id)
             else:
-                text = token.text
+                if hasattr(token, "text"): text = token.text # Allowing usage of string
+                else: text = token
                 if self.lowercase_tokens:
                     text = text.lower()
                 indices.append(vocabulary.get_token_index(text, self.namespace))
