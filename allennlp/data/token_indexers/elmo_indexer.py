@@ -118,7 +118,7 @@ class ELMoTokenCharactersIndexer(TokenIndexer[List[int]]):
         # https://github.com/allenai/allennlp/blob/master/allennlp/data/token_indexers/wordpiece_indexer.py#L113
 
         # pylint: disable=unused-argument
-        texts = [token.text for token in tokens]
+        texts = [token.text if hasattr(token, "text") else token for token in tokens]
 
         if any(text is None for text in texts):
             raise ConfigurationError('ELMoTokenCharactersIndexer needs a tokenizer '
