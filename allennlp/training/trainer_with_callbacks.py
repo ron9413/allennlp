@@ -48,6 +48,7 @@ class TrainerWithCallbacks(TrainerBase):
                  shuffle: bool = True,
                  num_epochs: int = 20,
                  callbacks: List = [], # New!
+                 gradient_accumulation_steps: int = 1,
                  serialization_dir: Optional[str] = None,
                  num_serialized_models_to_keep: int = 20,
                  keep_serialized_model_every_num_seconds: int = None,
@@ -232,6 +233,7 @@ class TrainerWithCallbacks(TrainerBase):
         # NEW: Callbacks
         self.callbacks = CallbackHandler(callbacks)
         self.callbacks.set_trainer(self)
+        self._gradient_accumulation_steps = gradient_accumulation_steps
 
     def rescale_gradients(self) -> Optional[float]:
         return training_util.rescale_gradients(self.model, self._grad_norm)
@@ -317,11 +319,13 @@ class TrainerWithCallbacks(TrainerBase):
 
             self.callbacks.on_event(EventType.BACKWARD_BEGIN, data={"loss": loss})
 
+            train_loss += loss.item()
+
+            if self._gradient_accumulation_steps > 1:
+                loss = loss / self._gradient_accumulation_steps # rescale
             loss.backward()
 
             self.callbacks.on_event(EventType.BACKWARD_END)
-
-            train_loss += loss.item()
 
             batch_grad_norm = self.rescale_gradients()
 
@@ -331,6 +335,11 @@ class TrainerWithCallbacks(TrainerBase):
                 self._learning_rate_scheduler.step_batch(batch_num_total)
             if self._momentum_scheduler:
                 self._momentum_scheduler.step_batch(batch_num_total)
+
+            # gradient accumulation
+            if self._gradient_accumulation_steps > 1:
+                if ((batches_this_epoch + 1) % self._gradient_accumulation_steps != 0):
+                    continue # skip subsequent processing
 
             if self._tensorboard.should_log_histograms_this_batch():
                 # get the magnitude of parameter updates for logging
