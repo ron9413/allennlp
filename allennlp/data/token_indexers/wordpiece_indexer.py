@@ -137,9 +137,10 @@ class WordpieceIndexer(TokenIndexer[int]):
 
         for token in tokens:
             # Lowercase if necessary
-            text = (token.text.lower()
-                    if self._do_lowercase and token.text not in self._never_lowercase
-                    else token.text)
+            text = getattr(token, "text", token)
+            text = (text.lower()
+                    if self._do_lowercase and text not in self._never_lowercase
+                    else text)
             token_wordpiece_ids = [self.vocab[wordpiece]
                                    for wordpiece in self.wordpiece_tokenizer(text)]
             # If we have enough room to add these ids *and also* the end_token ids.
@@ -158,7 +159,8 @@ class WordpieceIndexer(TokenIndexer[int]):
                 wordpiece_ids.extend(token_wordpiece_ids)
             else:
                 # TODO(joelgrus): figure out a better way to handle this
-                logger.warning(f"Too many wordpieces, truncating: {[token.text for token in tokens]}")
+                # Disabling warning since it is way too annoying
+                # logger.warning(f"Too many wordpieces, truncating: {[token.text for token in tokens]}")
                 break
 
         # By construction, we still have enough room to add the end_token ids.
