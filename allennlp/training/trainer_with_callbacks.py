@@ -307,8 +307,8 @@ class TrainerWithCallbacks(TrainerBase):
             batch_num_total = self._batch_num_total
 
             self.callbacks.on_event(EventType.BATCH_BEGIN,
-                                    data={"batch_num_total": self._batch_num_total,
-                                          "batches_this_epoch": batches_this_epoch})
+                                    payload={"batch_num_total": self._batch_num_total,
+                                             "batches_this_epoch": batches_this_epoch})
 
             self.optimizer.zero_grad()
 
@@ -317,7 +317,7 @@ class TrainerWithCallbacks(TrainerBase):
             if torch.isnan(loss):
                 raise ValueError("nan loss encountered")
 
-            self.callbacks.on_event(EventType.BACKWARD_BEGIN, data={"loss": loss})
+            self.callbacks.on_event(EventType.BACKWARD_BEGIN, payload={"loss": loss})
 
             train_loss += loss.item()
 
@@ -370,8 +370,8 @@ class TrainerWithCallbacks(TrainerBase):
             train_generator_tqdm.set_description(description, refresh=False)
 
             self.callbacks.on_event(EventType.BATCH_END,
-                                    data={"batch_num_total": self._batch_num_total,
-                                          "batches_this_epoch": batches_this_epoch})
+                                    payload={"batch_num_total": self._batch_num_total,
+                                             "batches_this_epoch": batches_this_epoch})
 
             # Log parameter values to Tensorboard
             if self._tensorboard.should_log_this_batch():
@@ -398,6 +398,8 @@ class TrainerWithCallbacks(TrainerBase):
                     time.time() - last_save_time > self._model_save_interval
             ):
                 last_save_time = time.time()
+                self.callbacks.on_event(EventType.TIMER,
+                                        payload={"save_time": last_save_time})
                 self._save_checkpoint(
                         '{0}.{1}'.format(epoch, training_util.time_to_str(int(last_save_time)))
                 )

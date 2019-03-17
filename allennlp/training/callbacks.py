@@ -27,66 +27,58 @@ class EventType(Enum):
     BATCH_END = "batch_end"
     EPOCH_END = "epoch_end"
     TRAIN_END = "train_end"
+    TIMER = "timer"
 
 class Callback(Registrable):
     _priority=0
-    def on_event(self, event_type: EventType, data: dict=None) -> None:
-        if event_type == EventType.TRAIN_BEGIN: self.on_train_begin(data)
-        if event_type == EventType.EPOCH_BEGIN: self.on_epoch_begin(data)
-        if event_type == EventType.BATCH_BEGIN: self.on_batch_begin(data)
-        if event_type == EventType.LOSS_BEGIN: self.on_loss_begin(data)
-        if event_type == EventType.BACKWARD_BEGIN: self.on_backward_begin(data)
-        if event_type == EventType.BACKWARD_END: self.on_backward_end(data)
-        if event_type == EventType.STEP_END: self.on_step_end(data)
-        if event_type == EventType.BATCH_END: self.on_batch_end(data)
-        if event_type == EventType.TRAIN_END: self.on_train_end(data)
+    def on_event(self, event_type: EventType, payload: dict=None) -> None:
+        if event_type == EventType.TRAIN_BEGIN: self.on_train_begin(payload)
+        if event_type == EventType.EPOCH_BEGIN: self.on_epoch_begin(payload)
+        if event_type == EventType.BATCH_BEGIN: self.on_batch_begin(payload)
+        if event_type == EventType.LOSS_BEGIN: self.on_loss_begin(payload)
+        if event_type == EventType.BACKWARD_BEGIN: self.on_backward_begin(payload)
+        if event_type == EventType.BACKWARD_END: self.on_backward_end(payload)
+        if event_type == EventType.STEP_END: self.on_step_end(payload)
+        if event_type == EventType.BATCH_END: self.on_batch_end(payload)
+        if event_type == EventType.EPOCH_END: self.on_epoch_end(payload)
+        if event_type == EventType.TRAIN_END: self.on_train_end(payload)
+        if event_type == EventType.TIMER: self.on_timer(payload)
 
-    def on_train_begin(self, data: dict={})->None:
-        "To initialize constants in the callback."
-        pass
-    def on_epoch_begin(self, data: dict={})->None:
-        "At the beginning of each epoch."
-        pass
-    def on_batch_begin(self, data: dict={})->None:
-        "Set HP before the step is done. Returns xb, yb (which can allow us to modify the input at that step if needed)."
-        pass
-    def on_loss_begin(self, data: dict={})->None:
-        "Called after forward pass but before loss has been computed. Returns the output (which can allow us to modify it)."
-        pass
-    def on_backward_begin(self, data: dict={})->None:
-        """Called after the forward pass and the loss has been computed, but before backprop.
-           Returns the loss (which can allow us to modify it, for instance for reg functions)"""
-        pass
-    def on_backward_end(self, data: dict={})->None:
-        "Called after backprop but before optimizer step. Useful for true weight decay in AdamW."
-        pass
-    def on_step_end(self, data: dict={})->None:
-        "Called after the step of the optimizer but before the gradients are zeroed."
-        pass
-    def on_batch_end(self, data: dict={})->None:
-        "Called at the end of the batch."
-        pass
-    def on_epoch_end(self, data: dict={})->bool:
-        "Called at the end of an epoch."
-        return False
-    def on_train_end(self, data: dict={})->None:
-        "Useful for cleaning up things and saving files/models."
+    def on_train_begin(self, payload: dict={}) -> None:
         pass
 
-    def get_state(self, minimal:bool=True):
-        to_remove = ['exclude', 'not_min'] + getattr(self, 'exclude', []).copy()
-        if minimal: to_remove += getattr(self, 'not_min', []).copy()
-        return {k:v for k,v in self.__dict__.items() if k not in to_remove}
+    def on_epoch_begin(self, payload: dict={}) -> None:
+        pass
 
-    def  __repr__(self):
-        attrs = func_args(self.__init__)
-        to_remove = getattr(self, 'exclude', [])
-        list_repr = [self.__class__.__name__] + [f'{k}: {getattr(self, k)}' for k in attrs if k != 'self' and k not in to_remove]
-        return '\n'.join(list_repr)
+    def on_batch_begin(self, payload: dict={}) -> None:
+        pass
+
+    def on_loss_begin(self, payload: dict={}) -> None:
+        pass
+
+    def on_backward_begin(self, payload: dict={}) -> None:
+        pass
+
+    def on_backward_end(self, payload: dict={}) -> None:
+        pass
+
+    def on_step_end(self, payload: dict={}) -> None:
+        pass
+
+    def on_batch_end(self, payload: dict={}) -> None:
+        pass
+
+    def on_epoch_end(self, payload: dict={}) -> None:
+        pass
+
+    def on_train_end(self, payload: dict={}) -> None:
+        pass
+
+    def on_timer(selfself, payload: dict={}) -> None:
+        pass
 
     def set_trainer(self, trainer):
         """Sets the trainer (required)"""
-        # TODO: Move to constructor
         self._trainer = trainer
 
     @property
@@ -101,14 +93,15 @@ class CallbackHandler:
         self.callbacks = sorted(self.callbacks, key=lambda o: -getattr(o, '_priority', 0))
 
     def call(self, attr, *args, **kwargs):
-        for cb in self.callbacks: getattr(cb, attr)(*args, **kwargs)
+        for cb in self.callbacks:
+            getattr(cb, attr)(*args, **kwargs)
 
     def set_trainer(self, trainer):
         self.trainer = trainer
         self.call("set_trainer", trainer)
 
-    def on_event(self, event_type: EventType, data: dict=None):
-        self.call("on_event", event_type, data=data)
+    def on_event(self, event_type: EventType, payload: dict=None):
+        self.call("on_event", event_type, payload=payload)
 
 class TensorboardCallback(Callback):
     def __init__(self,
