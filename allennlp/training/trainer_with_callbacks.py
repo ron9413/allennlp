@@ -251,6 +251,8 @@ class TrainerWithCallbacks(TrainerBase):
             batch = nn_util.move_to_device(batch, self._cuda_devices[0])
             output_dict = self.model(**batch)
 
+        self.callbacks.on_event(EventType.FORWARD_END, payload=output_dict)
+
         try:
             loss = output_dict["loss"]
             if for_training:
@@ -314,8 +316,13 @@ class TrainerWithCallbacks(TrainerBase):
 
             loss = self.batch_loss(batch_group, for_training=True)
 
+            # check for nan weights
+            for name, p in self.model.named_parameters():
+                if torch.isnan(p).any():
+                    raise ValueError(f"Encountered nan weight in {name}")
+
             if torch.isnan(loss):
-                raise ValueError("nan loss encountered")
+                continue # instead of raising error, skip this loss
 
             self.callbacks.on_event(EventType.BACKWARD_BEGIN, payload={"loss": loss})
 
