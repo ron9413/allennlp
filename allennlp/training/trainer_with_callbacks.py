@@ -251,7 +251,7 @@ class TrainerWithCallbacks(TrainerBase):
             batch = nn_util.move_to_device(batch, self._cuda_devices[0])
             output_dict = self.model(**batch)
 
-        self.callbacks.on_event(EventType.FORWARD_END, payload=output_dict)
+        # self.callbacks.on_event(EventType.FORWARD_END, payload=output_dict)
 
         try:
             loss = output_dict["loss"]
