@@ -63,7 +63,9 @@ class TrainerWithCallbacks(TrainerBase):
                  should_log_parameter_statistics: bool = True,
                  should_log_learning_rate: bool = False,
                  log_batch_size_period: Optional[int] = None,
-                 moving_average: Optional[MovingAverage] = None) -> None:
+                 moving_average: Optional[MovingAverage] = None,
+                 deindex: bool=False,
+                 ) -> None:
         """
         A trainer that allows the usage of callbacks.
         This is line-for-line the same as the regular Trainer except with Callbacks.
@@ -234,6 +236,7 @@ class TrainerWithCallbacks(TrainerBase):
         self.callbacks = CallbackHandler(callbacks)
         self.callbacks.set_trainer(self)
         self._gradient_accumulation_steps = gradient_accumulation_steps
+        self.deindex = deindex
 
     def rescale_gradients(self) -> Optional[float]:
         return training_util.rescale_gradients(self.model, self._grad_norm)
@@ -286,6 +289,7 @@ class TrainerWithCallbacks(TrainerBase):
         # Get tqdm for the training batches
         raw_train_generator = self.iterator(self.train_data,
                                             num_epochs=1,
+                                            deindex=self.deindex,
                                             shuffle=self.shuffle)
         train_generator = lazy_groups_of(raw_train_generator, num_gpus)
         num_training_batches = math.ceil(self.iterator.get_num_batches(self.train_data)/num_gpus)

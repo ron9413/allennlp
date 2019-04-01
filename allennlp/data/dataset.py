@@ -29,7 +29,7 @@ class Batch(Iterable):
         """
         super().__init__()
 
-        self.instances: List[Instance] = ensure_list(instances)
+        self.instances: List[Ilnstance] = ensure_list(instances)
         self._check_types()
 
     def _check_types(self) -> None:
@@ -153,6 +153,10 @@ class Batch(Iterable):
     def index_instances(self, vocab: Vocabulary) -> None:
         for instance in self.instances:
             instance.index_fields(vocab)
+
+    def deindex_instances(self):
+        for instance in self.instances:
+            instance.deindex_fields()
 
     def print_statistics(self) -> None:
         # Make sure if has been indexed first

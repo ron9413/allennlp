@@ -89,6 +89,7 @@ class DataIterator(Registrable):
     def __call__(self,
                  instances: Iterable[Instance],
                  num_epochs: int = None,
+                 deindex: bool=False,
                  shuffle: bool = True) -> Iterator[TensorDict]:
         """
         Returns a generator that yields batches over the given dataset
@@ -155,6 +156,9 @@ class DataIterator(Registrable):
 
                     if add_to_cache:
                         self._cache[key].append(tensor_dict)
+
+                    if deindex:
+                        batch.deindex_instances()
 
                     yield tensor_dict
 

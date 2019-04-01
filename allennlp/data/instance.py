@@ -71,6 +71,12 @@ class Instance(Mapping[str, Field]):
             for field in self.fields.values():
                 field.index(vocab)
 
+    def deindex_fields(self):
+        if self.indexed:
+            self.indexed = False
+            for field in self.fields.values():
+                if hasattr(field, "deindex"): field.deindex()
+
     def get_padding_lengths(self) -> Dict[str, Dict[str, int]]:
         """
         Returns a dictionary of padding lengths, keyed by field name.  Each ``Field`` returns a
