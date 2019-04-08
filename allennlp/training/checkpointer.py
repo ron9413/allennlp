@@ -142,6 +142,27 @@ class Checkpointer:
         training_state = torch.load(training_state_path, map_location=nn_util.device_mapping(-1))
         return model_state, training_state
 
+    def restore_best_checkpoint(self, best_epoch: int) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        have_checkpoint = (self._serialization_dir is not None and
+                           any("model_state_epoch_" in x for x in os.listdir(self._serialization_dir)))
+
+        if not have_checkpoint:
+            # No checkpoint to restore, start at 0
+            return {}, {}
+
+        model_path = os.path.join(self._serialization_dir,
+                                  "model_state_epoch_{}.th".format(best_epoch))
+        training_state_path = os.path.join(self._serialization_dir,
+                                           "training_state_epoch_{}.th".format(best_epoch))
+
+        # Load the parameters onto CPU, then transfer to GPU.
+        # This avoids potential OOM on GPU for large models that
+        # load parameters onto GPU then make a new GPU copy into the parameter
+        # buffer. The GPU transfer happens implicitly in load_state_dict.
+        model_state = torch.load(model_path, map_location=nn_util.device_mapping(-1))
+        training_state = torch.load(training_state_path, map_location=nn_util.device_mapping(-1))
+        return model_state, training_state
+
     def best_model_state(self) -> Dict[str, Any]:
         if self._serialization_dir:
             logger.info("loading best weights")

@@ -62,7 +62,9 @@ class TrainerWithCallbacks(TrainerBase):
                  should_log_parameter_statistics: bool = True,
                  should_log_learning_rate: bool = False,
                  log_batch_size_period: Optional[int] = None,
-                 moving_average: Optional[MovingAverage] = None) -> None:
+                 moving_average: Optional[MovingAverage] = None,
+                 lr_decay_rate: float = 0.5,
+                 max_lr_decay: int = 2) -> None:
         """
         A trainer that allows the usage of callbacks.
         This is line-for-line the same as the regular Trainer except with Callbacks.
@@ -232,6 +234,10 @@ class TrainerWithCallbacks(TrainerBase):
         # NEW: Callbacks
         self.callbacks = CallbackHandler(callbacks)
         self.callbacks.set_trainer(self)
+
+        self.lr_decay_count = 0
+        self.lr_decay_rate = lr_decay_rate
+        self.max_lr_decay = max_lr_decay
 
     def rescale_gradients(self) -> Optional[float]:
         return training_util.rescale_gradients(self.model, self._grad_norm)
@@ -453,12 +459,12 @@ class TrainerWithCallbacks(TrainerBase):
 
         return val_loss, batches_this_epoch
 
-    def train(self) -> Dict[str, Any]:
+    def train(self, restore_best: bool=False) -> Dict[str, Any]:
         """
         Trains the supplied model with the supplied parameters.
         """
         try:
-            epoch_counter = self._restore_checkpoint()
+            epoch_counter = self._restore_checkpoint(restore_best)
         except RuntimeError:
             traceback.print_exc()
             raise ConfigurationError("Could not recover training from the checkpoint.  Did you mean to output to "
@@ -476,6 +482,7 @@ class TrainerWithCallbacks(TrainerBase):
         metrics: Dict[str, Any] = {}
         epochs_trained = 0
         training_start_time = time.time()
+        restart_train_from_best = False
 
         metrics['best_epoch'] = self._metric_tracker.best_epoch
         for key, value in self._metric_tracker.best_epoch_metrics.items():
@@ -508,7 +515,12 @@ class TrainerWithCallbacks(TrainerBase):
                     self._metric_tracker.add_metric(this_epoch_val_metric)
 
                     if self._metric_tracker.should_stop_early():
-                        logger.info("Ran out of patience.  Stopping training.")
+                        if self.lr_decay_count < self.max_lr_decay:
+                            self.lr_decay_count += 1
+                            logger.info("Restart from the best epoch with half lr.")
+                            restart_train_from_best = True
+                        else:
+                            logger.info("Ran out of patience.  Stopping training.")
                         break
 
             self._tensorboard.log_metrics(train_metrics, val_metrics=val_metrics, log_to_console=True)
@@ -558,6 +570,9 @@ class TrainerWithCallbacks(TrainerBase):
 
             epochs_trained += 1
 
+        if restart_train_from_best:
+            self.train(restore_best=True)
+
         # Load the best model state before returning
         best_model_state = self._checkpointer.best_model_state()
         if best_model_state:
@@ -605,7 +620,7 @@ class TrainerWithCallbacks(TrainerBase):
         if self._moving_average is not None:
             self._moving_average.restore()
 
-    def _restore_checkpoint(self) -> int:
+    def _restore_checkpoint(self, restore_best: bool = False) -> int:
         """
         Restores the model and training state from the last saved checkpoint.
         This includes an epoch count and optimizer state, which is serialized separately
@@ -623,7 +638,11 @@ class TrainerWithCallbacks(TrainerBase):
             The epoch at which to resume training, which should be one after the epoch
             in the saved training state.
         """
-        model_state, training_state = self._checkpointer.restore_checkpoint()
+        if restore_best:
+            best_epoch = self._metric_tracker.best_epoch
+            model_state, training_state = self._checkpointer.restore_best_checkpoint(best_epoch)
+        else:
+            model_state, training_state = self._checkpointer.restore_checkpoint()
 
         if not training_state:
             # No checkpoint to restore, start at 0
@@ -631,6 +650,9 @@ class TrainerWithCallbacks(TrainerBase):
 
         self.model.load_state_dict(model_state)
         self.optimizer.load_state_dict(training_state["optimizer"])
+        if restore_best:
+            for param_group in self.optimizer.param_groups:
+                param_group['lr'] *= self.lr_decay_rate
         if self._learning_rate_scheduler is not None and "learning_rate_scheduler" in training_state:
             self._learning_rate_scheduler.load_state_dict(training_state["learning_rate_scheduler"])
         if self._momentum_scheduler is not None and "momentum_scheduler" in training_state:
